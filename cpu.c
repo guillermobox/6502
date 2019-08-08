@@ -84,9 +84,10 @@ static void aby()
 
 static void ind()
 {
-	byte off = memload(cpustate.PC++);
+	addr off = memload(cpustate.PC++);
+	off |= memload(cpustate.PC++) << 8;
 	address  = memload(off);
-	address |= memload((off + 1) & 0xff) << 8;
+	address |= memload(off + 1) << 8;
 };
 
 static void aix()
@@ -476,13 +477,20 @@ static void plp(void) /* page 123 MOS */
 
 static void rti(void) /* page 132 MOS */
 {
-	cpustate.PC = stack_pull() << 8 | stack_pull();
-	cpustate.P = stack_pull();
+  cpustate.P = stack_pull();
+  cpustate.PC = stack_pull() | stack_pull() << 8;
+
 };
 
 static void brk(void) /* page 144 MOS */
 {
-	cpustate.PC = (addr)memload(0xFFFE) | ((addr)memload(0xFFFF) << 8);
+  stack_push((cpustate.PC+1) >> 8);
+  stack_push((cpustate.PC+1) & 0xFF);
+  stack_push(cpustate.P | 16 | 32);
+  cpustate.I = 1;
+  cpustate.B = 1;
+  cpustate._unused_ = 1;
+  cpustate.PC = (addr)memload(0xFFFE) | ((addr)memload(0xFFFF) << 8);
 };
 
 /*
@@ -638,9 +646,10 @@ void cpu_init()
 	memset(memory, 0, sizeof(memory));
 	memset(&cpustate, 0, sizeof(cpustate));
 	cpustate.SP = 0xFF;
+	cpustate.B = 1;
+	cpustate._unused_ = 1;
 	cpustate.PC = (addr)memload(0xFFFC) | ((addr)memload(0xFFFD) << 8);
 	cpustate.PC = 0x00;
-	cpustate.A = 0xFF;
 };
 
 void check_interrupts()
@@ -667,8 +676,8 @@ void cpu_step()
 	addressing = addressing_map[op];
 	instruction = instruction_map[op];
 
-	if (instruction == NULL) {
-		exit(1);
+	if (instruction == brk) {
+		return;
 	}
 
 	cpustate.PC++;
@@ -676,6 +685,26 @@ void cpu_step()
 	addressing();
 	instruction();
 	check_interrupts();
-
 };
 
+void cpu_run_until_brk()
+{
+	int counter = 0;
+	struct timespec start={0,0}, end={0,0};
+	double elapsed;
+
+	clock_gettime(CLOCK_MONOTONIC, &start);
+	do {
+		cpu_step();
+		counter += 1;
+	} while (op != 0x0);
+	clock_gettime(CLOCK_MONOTONIC, &end);
+
+	elapsed = ((double)end.tv_sec + 1.0e-9*end.tv_nsec) - ((double)start.tv_sec + 1.0e-9*start.tv_nsec);
+
+	printf(" * Ran %d instructions in %lf seconds: %lf Mop/s\n",
+		counter,
+		elapsed,
+		(double) counter / elapsed / 1e6);
+
+};
