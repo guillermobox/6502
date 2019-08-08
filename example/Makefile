@@ -4,7 +4,7 @@ it: cpu6502.so fib.bin
 cpu6502.so:
 	ln -s ../cpu6502.*.so cpu6502.so
 
-fib.bin:
+fib.bin: fib.s
 	cl65 --config memory.cfg fib.s -o fib.bin
 
 clean:

@@ -1,5 +1,5 @@
 .define INTSIZE #32
-.define N #255
+.define N #180
 
 Fib1 = $1000
 Fib2 = $1080
@@ -24,9 +24,6 @@ partialsum1:
 	TXA
 	BNE partialsum1
 
-	DEY
-	BEQ exit
-
 	CLC
 	LDX INTSIZE
 partialsum2:
@@ -39,5 +36,3 @@ partialsum2:
 
 	DEY
 	BNE nextfib
-exit:
-	BRK
