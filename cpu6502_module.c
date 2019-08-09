@@ -1,5 +1,6 @@
 #include <Python.h>
 #include "cpu.h"
+#include <pthread.h>
 
 extern byte memory[0x10000];
 extern void cpu_init();
@@ -19,9 +20,15 @@ static PyObject* step(PyObject* self, PyObject* args)
 	return Py_None;
 };
 
-static PyObject* run_until_break(PyObject* self, PyObject* args)
+void * pthread_cpu_run(void * data)
 {
 	cpu_run_until_brk();
+};
+
+static PyObject* run_until_break(PyObject* self, PyObject* args)
+{
+	pthread_t pthread_run;
+	pthread_create(&pthread_run, NULL, pthread_cpu_run, NULL);
 	return Py_None;
 };
 
