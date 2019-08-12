@@ -1,8 +1,10 @@
 FuelActivation = $E010
 FuelInput1 = $E002
 
+BURN_INTENSITY = $FF
+
 .segment "CODE"
-	LDA #1
+	LDA #BURN_INTENSITY
 	STA FuelActivation
 
 busywait:
@@ -12,6 +14,3 @@ busywait:
 
 	LDA #0
 	STA FuelActivation
-	
-
-	

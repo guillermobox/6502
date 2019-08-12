@@ -6,30 +6,41 @@ extern byte memory[0x10000];
 extern void cpu_init();
 extern void cpu_step();
 extern void cpu_run_until_brk();
+extern int running;
 extern struct st_cpustate cpustate;
 
 static PyObject* init(PyObject* self, PyObject* args)
 {
 	cpu_init();
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 
 static PyObject* step(PyObject* self, PyObject* args)
 {
 	cpu_step();
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 
 void * pthread_cpu_run(void * data)
 {
 	cpu_run_until_brk();
+	Py_INCREF(Py_None);
+	return Py_None;
 };
 
 static PyObject* run_until_break(PyObject* self, PyObject* args)
 {
 	pthread_t pthread_run;
 	pthread_create(&pthread_run, NULL, pthread_cpu_run, NULL);
+	Py_INCREF(Py_None);
 	return Py_None;
+};
+
+static PyObject* is_running(PyObject* self, PyObject* args)
+{
+	return Py_BuildValue("i", running);
 };
 
 static PyObject* read_byte(PyObject* self, PyObject* args)
@@ -65,6 +76,7 @@ static PyObject* write_byte(PyObject* self, PyObject* args)
       
 	memory[addr] = value;
   
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 
@@ -81,6 +93,7 @@ static PyObject* set_p(PyObject* self, PyObject* args)
 	}
 
 	cpustate.P = value;;
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 
@@ -102,6 +115,7 @@ static PyObject* set_pc(PyObject* self, PyObject* args)
 	}
 
 	cpustate.PC = addr;
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 static PyObject* get_p(PyObject* self, PyObject* args)
@@ -123,6 +137,7 @@ static PyObject* set_stack(PyObject* self, PyObject* args)
 	}
 
 	cpustate.SP = value;
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 
@@ -144,6 +159,7 @@ static PyObject* set_a(PyObject* self, PyObject* args)
 	}
 
 	cpustate.A = value;
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 
@@ -165,6 +181,7 @@ static PyObject* set_x(PyObject* self, PyObject* args)
 	}
 
 	cpustate.X = value;
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 
@@ -186,6 +203,7 @@ static PyObject* set_y(PyObject* self, PyObject* args)
 	}
 
 	cpustate.Y = value;
+	Py_INCREF(Py_None);
 	return Py_None;
 };
 
@@ -202,6 +220,7 @@ static PyMethodDef Methods[] =
 	{"read", read_byte, METH_VARARGS, "Read from memory"},
 	{"write", write_byte, METH_VARARGS, "Write at memory"},
 	{"step", step, METH_VARARGS, "Read and execute one instruction"},
+	{"is_running", is_running, METH_VARARGS, "Return 1 if the cpu is running"},
 	{"run_until_break", run_until_break, METH_VARARGS, "Read and execute one instruction"},
 	{"set_pc", set_pc, METH_VARARGS, "Set the program counter"},
 	{"get_pc", get_pc, METH_VARARGS, "Get the program counter"},

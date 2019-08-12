@@ -1,5 +1,5 @@
 FuelActivation = $E010
 
 .segment "CODE"
-	LDA #1
+	LDA #$FF
 	STA FuelActivation

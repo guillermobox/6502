@@ -10,6 +10,7 @@ byte memory[0x10000];
 byte op;
 addr address;
 struct st_cpustate cpustate;
+int running = 0;
 
 static inline void memstore(addr address, byte data)
 {
@@ -692,6 +693,7 @@ void cpu_run_until_brk()
 	int counter = 0;
 	struct timespec start={0,0}, end={0,0};
 	double elapsed;
+	running = 1;
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	do {
@@ -707,4 +709,5 @@ void cpu_run_until_brk()
 		elapsed,
 		(double) counter / elapsed / 1e6);
 
+	running = 0;
 };
