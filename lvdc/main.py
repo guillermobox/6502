@@ -5,7 +5,7 @@ import sys
 
 from unittest.mock import MagicMock
 
-
+#
 #class Boy():
 #    def __init__(self):
 #        self.m = MagicMock(return_value=0)
@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 #        return self.m
 #cpu6502 = Boy()
 #
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -21,22 +22,25 @@ from gi.repository import GObject
 from gi.repository import GLib
 
 def update_relay():
-    global lvdc_widgets, lvdc_status
     lvdc_widgets[0].set_text('{0:02X}'.format(cpu6502.get_sp()))
     lvdc_widgets[1].set_text('{0:04X}'.format(cpu6502.get_pc()))
     lvdc_widgets[2].set_text('{0:02X}'.format(cpu6502.get_a()))
     lvdc_widgets[3].set_text('{0:02X}'.format(cpu6502.get_x()))
     lvdc_widgets[4].set_text('{0:02X}'.format(cpu6502.get_y()))
+
     if cpu6502.is_running():
         lvdc_status.set_from_icon_name('gtk-yes', 6)
     else:
         lvdc_status.set_from_icon_name('gtk-no', 6)
+    return True
 
-def relay_thread():
+def update_draw():
+    life_feed.queue_draw()
+    return True
+
+def relay_thread(*args):
     while True:
-        GLib.idle_add(update_relay)
-        life_feed.queue_draw()
-        time.sleep(0.1)
+        time.sleep(1.0 / 30)
 
 x, y = 0, 0
 vx, vy = 0, 0
@@ -44,8 +48,9 @@ dt = 0.1
 g = 9.8
 a = 0
 fuel = [1.0, 1.0, 1.0]
+cmd = 0
 
-def update_telemetry(cmd):
+def update_telemetry():
     fuel_widgets[0].set_value(fuel[0])
     fuel_widgets[1].set_value(fuel[1])
     fuel_widgets[2].set_value(fuel[2])
@@ -55,9 +60,10 @@ def update_telemetry(cmd):
     tele_widgets[3].set_text('{:.4f}'.format(vy))
     burn_widgets[0].set_text('{0:2X}'.format(cmd))
     burn_widgets[1].set_value(cmd)
+    return True
 
 def simulation_thread():
-    global x,y,vx,vy,dt,g,a,fuel
+    global x,y,vx,vy,dt,g,a,fuel,cmd
     while True:
         cpu6502.write(0xE002, int(fuel[0] * 0xFF))
         cpu6502.write(0xE003, int(fuel[1] * 0xFF))
@@ -66,11 +72,10 @@ def simulation_thread():
         time.sleep(0.1)
         cmd = cpu6502.read(0xE010)
 
-        GLib.idle_add(update_telemetry, cmd)
 
         burn_speed = cmd / 255
-        a = burn_speed * 12
-        fuel[0] = max(fuel[0] - burn_speed * 0.01, 0)
+        a = burn_speed * 10
+        fuel[0] = max(fuel[0] - burn_speed * 0.001, 0)
         if fuel[0] == 0:
             a = 0
 
@@ -81,36 +86,40 @@ def simulation_thread():
             y = 0
             vy = 0
 
-def draw_cobete(widget, pango):
+def draw_cobete(widget, ctx):
     width = 200
     height = 200
     yoffset = 140 - y
 
-    pango.set_line_width(.5)
-    pango.move_to(0, 190)
-    pango.line_to(90, 190)
-    pango.line_to(90, 199)
-    pango.line_to(110, 199)
-    pango.line_to(110, 190)
-    pango.line_to(200, 190)
-    pango.stroke()
+    ctx.save()
+
+    ctx.new_path()
+    ctx.set_line_width(.5)
+    ctx.move_to(0, 190)
+    ctx.line_to(90, 190)
+    ctx.line_to(90, 199)
+    ctx.line_to(110, 199)
+    ctx.line_to(110, 190)
+    ctx.line_to(200, 190)
+    ctx.stroke()
 
     if a > 0:
-        pango.set_line_width(1)
-        pango.set_source_rgb(1, 0, 0)
-        #pango.move_to(100 - 8, 51 + yoffset)
-        pango.arc(100, 51 + yoffset, 8, 0, 3.14159)
-        pango.stroke()
+        ctx.new_path()
+        ctx.set_line_width(1)
+        ctx.set_source_rgb(1, 0, 0)
+        ctx.arc(100, 51 + yoffset, 8, 0, 3.14159)
+        ctx.stroke()
 
-    pango.set_source_rgb(0, 0, 0)
-    pango.set_line_width(1)
-    pango.move_to(100, 10 + yoffset)
-    pango.line_to(85,  50 + yoffset)
-    pango.line_to(115, 50 + yoffset)
-    pango.line_to(100, 10 + yoffset)
-    pango.stroke()
+    ctx.new_path()
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.set_line_width(1)
+    ctx.move_to(100, 10 + yoffset)
+    ctx.line_to(85,  50 + yoffset)
+    ctx.line_to(115, 50 + yoffset)
+    ctx.line_to(100, 10 + yoffset)
+    ctx.stroke()
 
-    pango.translate(0, 100)
+    ctx.restore()
 
 def gtk_interface():
     global fuel_widgets, burn_widgets, tele_widgets
@@ -167,9 +176,13 @@ def gtk_interface():
     simulation.daemon = True
     simulation.start()
 
-    relay = threading.Thread(target=relay_thread)
+    relay = threading.Thread(target=relay_thread, args=(lvdc_widgets, lvdc_status))
     relay.daemon = True
     relay.start()
+
+    GLib.idle_add(update_telemetry)
+    GLib.idle_add(update_relay)
+    GLib.idle_add(update_draw)
 
     Gtk.main()
 
@@ -184,7 +197,6 @@ def lvdc_main_loop():
 
     cpu6502.set_pc(0x4000)
 
-    GObject.threads_init()
     gtk_interface()
 
 if __name__ == '__main__':

@@ -1,38 +1,38 @@
-.define INTSIZE #32
-.define N #180
+.define INTSIZE #255
 
 Fib1 = $1000
-Fib2 = $1080
+Fib2 = $2000
 
 .segment "CODE"
-
+	SED
 	LDA #1
-	LDX INTSIZE-1
-	LDY N
+	LDX INTSIZE
 
 	STA Fib1,x
 	STA Fib2,x
 
 nextfib:
-	CLC
 	LDX INTSIZE
+	CLC
 partialsum1:
-	DEX
 	LDA Fib1,x
 	ADC Fib2,x
 	STA Fib1,x
-	TXA
+	DEX
 	BNE partialsum1
 
-	CLC
+	BCS exit
+
 	LDX INTSIZE
+	CLC
 partialsum2:
-	DEX
 	LDA Fib1,x
 	ADC Fib2,x
 	STA Fib2,x
-	TXA
+	DEX
 	BNE partialsum2
 
-	DEY
-	BNE nextfib
+	BCS exit
+	JMP nextfib
+
+exit:

@@ -140,14 +140,11 @@ static void adc(void) /* page 7 MOS */
 	byte value = memload(address);
 	uint16_t sum = (uint16_t) cpustate.A + (uint16_t) value + cpustate.C;
 	if (cpustate.D) {
-		if (sum & 0x0100) {
-			cpustate.C = 1;
-			sum = sum + (6<<4);
-		}
-		if ((sum & 0x0f) > 0x09)
-			sum = sum + 6;
-		if ((sum & 0xf0) > 0x90)
-			sum = sum + (6<<4);
+		sum = 0x0000;
+		sum += (cpustate.A & 0x0F) + (value & 0x0F) + cpustate.C;
+		if (sum > 0x09) sum += 0x06;
+		sum += (cpustate.A & 0xF0) + (value & 0xF0);
+		if (sum > 0x99) sum += 0x60;
 	}
 	cpustate.V = (((cpustate.A ^ value) & 0x80) == 0x00) && ((sum & 0x80) != (value & 0x80));
 	cpustate.A = sum;
@@ -677,15 +674,15 @@ void cpu_step()
 	addressing = addressing_map[op];
 	instruction = instruction_map[op];
 
-	if (instruction == brk) {
-		return;
-	}
-
 	cpustate.PC++;
 
 	addressing();
 	instruction();
 	check_interrupts();
+
+	if (instruction == brk) {
+		return;
+	}
 };
 
 void cpu_run_until_brk()
