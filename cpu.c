@@ -12,6 +12,15 @@ addr address;
 struct st_cpustate cpustate;
 int running = 0;
 
+const byte P_N = 0x80;
+const byte P_V = 0x40;
+const byte P_unused = 0x20;
+const byte P_B = 0x10;
+const byte P_D = 0x08;
+const byte P_I = 0x04;
+const byte P_Z = 0x02;
+const byte P_C = 0x01;
+
 static inline void memstore(addr address, byte data)
 {
 	if (address >> 8 == 0xFF) /* page FF is ROM, not writable */
@@ -146,29 +155,38 @@ static void adc(void) /* page 7 MOS */
 		sum += (cpustate.A & 0xF0) + (value & 0xF0);
 		if (sum > 0x99) sum += 0x60;
 	}
-	cpustate.V = (((cpustate.A ^ value) & 0x80) == 0x00) && ((sum & 0x80) != (value & 0x80));
+	cpustate.V = !!((cpustate.A ^ sum) & (value ^ sum) & 0x80);
 	cpustate.A = sum;
-	cpustate.C = (sum & 0x0100) != 0x0000;
-	cpustate.Z = cpustate.A == 0x00;
+	cpustate.C = !!(sum & 0x0100);
+	cpustate.Z = !cpustate.A;
 	cpustate.N = (cpustate.A & 0x80) != 0x00;
 };
 
 static void sbc(void) /* page 14 MOS */
 {
 	byte value = memload(address);
-	byte value2 = (value ^ 0xFF) + cpustate.C;
-	uint16_t sum = (uint16_t) cpustate.A + (uint16_t) value2;
+	uint16_t sum, value2;
 	if (cpustate.D) {
-		if ((sum & 0x0f) > 0x09)
-			sum = sum - 6;
-		if ((sum & 0xf0) > 0x90)
-			sum = sum - (6<<4);
+		value2 = 0x099 - value + cpustate.C;
+		if ((value2 & 0x0f) > 0x09)
+			value2 += 0x06;
+		if ((value2 & 0xf0) > 0x90)
+			value2 += 0x60;
+
+		sum = (cpustate.A & 0x0F) + (value2 & 0x0F);
+		if (sum > 0x09) sum += 0x06;
+		sum += (cpustate.A & 0xF0) + (value2 & 0xF0);
+		if (sum > 0x99) sum += 0x60;
+		sum += value2 & 0xFF00;
+
+	} else {
+		value = value ^ 0xFF;
+		sum = (uint16_t) cpustate.A + (uint16_t) value + cpustate.C;
 	}
-	cpustate.V = (((cpustate.A ^ value) & 0x80) == 0x00) && ((sum & 0x80) != (value & 0x80));
+	cpustate.V = !!((cpustate.A ^ sum) & (value ^ sum) & 0x80);
 	cpustate.A = sum;
-	if (value!=0)
-		cpustate.C = (sum & 0x0100) != 0x0000;
-	cpustate.Z = cpustate.A == 0x00;
+	cpustate.C = !!(sum & 0x0100);
+	cpustate.Z = !cpustate.A;
 	cpustate.N = (cpustate.A & 0x80) != 0x00;
 };
 
@@ -447,8 +465,8 @@ static void pha(void) /* page 117 MOS */
 static void pla(void) /* page 118 MOS */
 {
 	cpustate.A = stack_pull();
-	cpustate.Z = cpustate.A == 0x00;
-	cpustate.N = (cpustate.A & 0x80) != 0x00;
+	cpustate.Z = cpustate.A == 0;
+	cpustate.N = cpustate.A >> 7;
 };
 
 static void txs(void) /* page 120 MOS */
@@ -465,12 +483,13 @@ static void tsx(void) /* page 122 MOS */
 
 static void php(void) /* page 122 MOS */
 {
-	stack_push(cpustate.P);
+	stack_push(cpustate.P | P_B | P_unused);
 };
 
 static void plp(void) /* page 123 MOS */
 {
-	cpustate.P = stack_pull();
+	cpustate.P = stack_pull() | P_unused;
+
 };
 
 static void rti(void) /* page 132 MOS */
@@ -655,7 +674,7 @@ void check_interrupts()
 	if (cpustate.NMI) {
 		cpustate.NMI = 0;
 		addr newpc = (addr) memload(0xfffa) | ((addr) memload(0xfffb) << 8);
-		stack_push(cpustate.P);
+		stack_push(cpustate.P & (~P_B));
 		stack_push((byte)cpustate.PC);
 		stack_push((byte)(cpustate.PC >> 8));
 		cpustate.PC = newpc;
@@ -673,16 +692,13 @@ void cpu_step()
 	op = memload(cpustate.PC);
 	addressing = addressing_map[op];
 	instruction = instruction_map[op];
+	if (addressing == NUL) return;
 
 	cpustate.PC++;
 
 	addressing();
 	instruction();
 	check_interrupts();
-
-	if (instruction == brk) {
-		return;
-	}
 };
 
 void cpu_run_until_brk()
@@ -690,13 +706,15 @@ void cpu_run_until_brk()
 	int counter = 0;
 	struct timespec start={0,0}, end={0,0};
 	double elapsed;
+	addr old;
 	running = 1;
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	do {
+		old = cpustate.PC;
 		cpu_step();
 		counter += 1;
-	} while (op != 0x0);
+	} while (cpustate.PC != old);
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
 	elapsed = ((double)end.tv_sec + 1.0e-9*end.tv_nsec) - ((double)start.tv_sec + 1.0e-9*start.tv_nsec);

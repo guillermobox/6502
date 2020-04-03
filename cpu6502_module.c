@@ -30,9 +30,10 @@ void *pthread_cpu_run(void *data)
     return Py_None;
 };
 
+pthread_t pthread_run;
+
 static PyObject *run_until_break(PyObject * self, PyObject * args)
 {
-    pthread_t pthread_run;
     pthread_create(&pthread_run, NULL, pthread_cpu_run, NULL);
     Py_INCREF(Py_None);
     return Py_None;
