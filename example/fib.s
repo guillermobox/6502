@@ -21,8 +21,12 @@ partialsum1:
 	DEX
 	BNE partialsum1
 
-	BCS exit
+	BCC continue
+	LDA #1
+	STA Fib1
 
+	JMP exit
+continue:
 	LDX INTSIZE
 	CLC
 partialsum2:
@@ -32,7 +36,11 @@ partialsum2:
 	DEX
 	BNE partialsum2
 
-	BCS exit
-	JMP nextfib
+	BCC nextfib
+	LDA #1
+	STA Fib2
+
+	JMP exit
 
 exit:
+

@@ -14,15 +14,14 @@ time.sleep(0.1)
 while cpu6502.is_running():
     time.sleep(0.1)
 
-print('=' * 80, "\nContents of 0x1000...")
+print("There are the last two fibonacci numbers computed:")
 for i in range(0, 256):
-	if i % 16 == 0:
+	if i % 32 == 0:
 		print()
 	print('{:02x}'.format(cpu6502.read(0x1000 + i)), end='')
 print()
-print('=' * 80, "\nContents of 0x2000...")
 for i in range(0, 256):
-	if i % 16 == 0:
+	if i % 32 == 0:
 		print()
 	print('{:02x}'.format(cpu6502.read(0x2000 + i)), end='')
 print()
