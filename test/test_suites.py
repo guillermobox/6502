@@ -4,25 +4,29 @@ import pytest
 import time
 import subprocess
 
+SUITES_DIRECTORY = pathlib.Path(__file__).parent / "suites"
 
-def compile(path, cfg, tmpdir):
-    subprocess.run(['ca65', '-o', tmpdir / 'out.o', '-l', tmpdir / 'out.lst', path])
-    subprocess.run(['ld65', tmpdir / 'out.o', '-o', tmpdir / 'out.bin', '-C', cfg])
-    return pathlib.Path(tmpdir / 'out.bin').read_bytes()
+def compile(path, config, tmpdir):
+    object = tmpdir / "suite.o"
+    listing = tmpdir / "suite.lst"
+    binary = tmpdir / "suite.bin"
+    subprocess.run(["ca65", "-o", object, "-l", listing, path])
+    subprocess.run(["ld65", "-o", binary, "-C", config, object])
+    return pathlib.Path(binary).read_bytes()
 
 
 @pytest.fixture
 def compiled_functional_test(tmpdir):
-    path = pathlib.Path.cwd() / '6502_functional_test.ca65'
-    cfg = pathlib.Path.cwd() / 'functional.cfg'
-    return compile(path, cfg, tmpdir)
+    code = SUITES_DIRECTORY / "functional.ca65"
+    cfg = SUITES_DIRECTORY / "functional.cfg"
+    return compile(code, cfg, tmpdir)
 
 
 @pytest.fixture
 def compiled_decimal_test(tmpdir):
-    path = pathlib.Path.cwd() / '6502_decimal_test.ca65'
-    cfg = pathlib.Path.cwd() / 'decimal.cfg'
-    return compile(path, cfg, tmpdir)
+    code = SUITES_DIRECTORY / "decimal.ca65"
+    cfg = SUITES_DIRECTORY / "decimal.cfg"
+    return compile(code, cfg, tmpdir)
 
 
 def test_functional_suite(compiled_functional_test):
