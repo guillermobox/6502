@@ -10,8 +10,8 @@ def compile(path, config, tmpdir):
     object = tmpdir / "suite.o"
     listing = tmpdir / "suite.lst"
     binary = tmpdir / "suite.bin"
-    subprocess.run(["ca65", "-o", object, "-l", listing, path])
-    subprocess.run(["ld65", "-o", binary, "-C", config, object])
+    subprocess.run(["ca65", "-o", object, "-l", listing, path], cwd=tmpdir, check=True)
+    subprocess.run(["ld65", "-o", binary, "-C", config, object], cwd=tmpdir, check=True)
     return pathlib.Path(binary).read_bytes()
 
 
