@@ -1,5 +1,5 @@
 
-it: cpu6502_module.c setup.py
+it: cpu6502.c setup.py
 	python setup.py build_ext --inplace
 
 clean:
